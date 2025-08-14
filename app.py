@@ -13,7 +13,7 @@ st.set_page_config(
 # CSS personalizado
 st.markdown("""
 <style>
-/* Fundo */
+/* Fundo da página */
 .stApp {
     background-color: #f5f7fa;
 }
@@ -47,6 +47,13 @@ h4 {
 .stDownloadButton button:hover {
     background-color: #0066cc;
 }
+
+/* Botão/área de upload personalizado */
+div[role="button"] span[data-baseweb="file-uploader"]::before {
+    content: "Subir Diário do Legislativo";
+    font-weight: bold;
+    font-size: 16px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -55,7 +62,7 @@ st.markdown("<h1>Extração de Requerimentos</h1>", unsafe_allow_html=True)
 st.markdown("<h4>GERÊNCIA DE INFORMAÇÃO LEGISLATIVA – GIL/GDI</h4>", unsafe_allow_html=True)
 
 # Upload do PDF
-uploaded = st.file_uploader("Enviar PDF", type=["pdf"])
+uploaded = st.file_uploader("", type=["pdf"])  # label vazio, texto será pelo CSS
 
 def classify_req(segment: str) -> str:
     s = segment.lower()
