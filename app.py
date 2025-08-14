@@ -3,7 +3,7 @@ from io import BytesIO
 from PyPDF2 import PdfReader
 import streamlit as st
 
-# Página ultra-minimalista (só upload e download)
+# Configuração da página
 st.set_page_config(page_title="PDF → CSV", layout="centered")
 st.markdown("""
 <style>
@@ -14,6 +14,7 @@ header {visibility:hidden;}
 </style>
 """, unsafe_allow_html=True)
 
+# Upload do PDF
 uploaded = st.file_uploader("Enviar PDF", type=["pdf"])
 
 def classify_req(segment: str) -> str:
@@ -29,52 +30,53 @@ def classify_req(segment: str) -> str:
     return ""
 
 def process_pdf_to_tsv(file_like) -> BytesIO:
-    # --- Ler PDF (igual ao seu Colab) ---
-    reader = PdfReader(file_like)
+    # Ler PDF garantindo leitura correta
+    file_bytes = BytesIO(file_like.read())
+    reader = PdfReader(file_bytes)
     text = ""
     for page in reader.pages:
         page_text = page.extract_text()
         if page_text:
             text += page_text + "\n"
 
-    # --- Normalizar múltiplos espaços (igual) ---
+    # Normalizar múltiplos espaços
     text = re.sub(r"[ \t]+", " ", text)
 
     requerimentos = []
 
-    # --- Regexes (iguais às suas) ---
-    rqn_pattern = re.compile(r"^(?:\\s*)(Nº)\\s+(\\d{2}\\.?\\d{3}/\\d{4})\\s*,\\s*(do|da)", re.MULTILINE)
-    rqc_pattern = re.compile(r"^(?:\\s*)(nº)\\s+(\\d{2}\\.?\\d{3}/\\d{4})\\s*,\\s*(do|da)", re.MULTILINE)
+    # Regex iguais às do Colab
+    rqn_pattern = re.compile(r"^(?:\s*)(Nº)\s+(\d{2}\.?\d{3}/\d{4})\s*,\s*(do|da)", re.MULTILINE)
+    rqc_pattern = re.compile(r"^(?:\s*)(nº)\s+(\d{2}\.?\d{3}/\d{4})\s*,\s*(do|da)", re.MULTILINE)
 
-    # --- Processar RQN (igual) ---
+    # Processar RQN
     for match in rqn_pattern.finditer(text):
         start_idx = match.start()
-        next_match = re.search(r"^(?:\\s*)(Nº|nº)\\s+(\\d{2}\\.?\\d{3}/\\d{4})", text[start_idx + 1:], flags=re.MULTILINE)
+        next_match = re.search(r"^(?:\s*)(Nº|nº)\s+(\d{2}\.?\d{3}/\d{4})", text[start_idx + 1:], flags=re.MULTILINE)
         end_idx = (next_match.start() + start_idx + 1) if next_match else len(text)
         block = text[start_idx:end_idx].strip()
 
-        nums_in_block = re.findall(r'\\d{2}\\.?\\d{3}/\\d{4}', block)
+        nums_in_block = re.findall(r'\d{2}\.?\d{3}/\d{4}', block)
         if not nums_in_block:
             continue
         num_part, ano = nums_in_block[0].replace(".", "").split("/")
         classif = classify_req(block)
         requerimentos.append(["RQN", num_part, ano, classif])
 
-    # --- Processar RQC (igual) ---
+    # Processar RQC
     for match in rqc_pattern.finditer(text):
         start_idx = match.start()
-        next_match = re.search(r"^(?:\\s*)(Nº|nº)\\s+(\\d{2}\\.?\\d{3}/\\d{4})", text[start_idx + 1:], flags=re.MULTILINE)
+        next_match = re.search(r"^(?:\s*)(Nº|nº)\s+(\d{2}\.?\d{3}/\d{4})", text[start_idx + 1:], flags=re.MULTILINE)
         end_idx = (next_match.start() + start_idx + 1) if next_match else len(text)
         block = text[start_idx:end_idx].strip()
 
-        nums_in_block = re.findall(r'\\d{2}\\.?\\d{3}/\\d{4}', block)
+        nums_in_block = re.findall(r'\d{2}\.?\d{3}/\d{4}', block)
         if not nums_in_block:
             continue
         num_part, ano = nums_in_block[0].replace(".", "").split("/")
         classif = classify_req(block)
         requerimentos.append(["RQC", num_part, ano, classif])
 
-    # --- Remover duplicatas (igual) ---
+    # Remover duplicatas
     unique_reqs = []
     seen = set()
     for r in requerimentos:
@@ -83,15 +85,15 @@ def process_pdf_to_tsv(file_like) -> BytesIO:
             seen.add(key)
             unique_reqs.append(r)
 
-    # --- Gerar TSV em memória no formato solicitado ---
+    # Gerar TSV em memória
     buf = BytesIO()
     for r in unique_reqs:
-        # Tipo, Número, Ano, [vazio], [vazio], Classificação
-        line = f"{r[0]}\\t{r[1]}\\t{r[2]}\\t\\t\\t{r[3]}\\n"
+        line = f"{r[0]}\t{r[1]}\t{r[2]}\t\t\t{r[3]}\n"
         buf.write(line.encode("utf-8"))
     buf.seek(0)
     return buf
 
+# Interface
 if uploaded is not None:
     csv_bytes = process_pdf_to_tsv(uploaded)
     st.download_button(
